@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "dist-electron"
+  },
+  "include": ["src/main/**/*", "src/preload/**/*", "electron-builder.config.ts", "electron.vite.config.ts"]
+}
