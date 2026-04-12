@@ -29,7 +29,7 @@ export class UploadQuizFileUseCase {
 
     let header
     try {
-      const parsed = parseOptmyBuffer(input.buffer.buffer)
+      const parsed = parseOptmyBuffer(input.buffer.buffer as ArrayBuffer)
       header = parsed.header
     } catch {
       throw new InvalidFileException()

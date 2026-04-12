@@ -12,7 +12,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   try {
     const { buffer, fileName } = await container.downloadFile.execute(params.id, session.user.id)
-    return new NextResponse(buffer, {
+    // Cast Buffer to Uint8Array<ArrayBuffer> for TS 5.7+ compatibility with BodyInit
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/octet-stream',
         'Content-Disposition': `attachment; filename="${fileName}"`,

@@ -1,14 +1,15 @@
 /**
- * Dependency Injection Container
+ * Dependency Injection Container — lazy singleton
  *
  * Wires infrastructure adapters to port interfaces.
- * To swap a tech: replace the adapter class, keep the use case unchanged.
+ * Instantiated lazily on first request (not at build time) so that
+ * env vars (GCS_KEY_BASE64, STRIPE_SECRET_KEY, etc.) are available.
  *
  * Example swaps:
- *  - S3 → Cloudflare R2 : replace S3FileStorageAdapter
- *  - Stripe → Paddle     : replace StripePaymentAdapter
- *  - MySQL → PostgreSQL  : change schema.prisma provider (Prisma repos stay the same)
- *  - Keycloak → Google   : change auth.ts provider (this file unchanged)
+ *  - GCS → S3/R2  : replace GCSFileStorageAdapter
+ *  - Stripe → Paddle: replace StripePaymentAdapter
+ *  - MySQL → Postgres: change schema.prisma provider
+ *  - Keycloak → Google: change auth.ts provider (this file unchanged)
  */
 import { PrismaUserRepository } from './repositories/PrismaUserRepository'
 import { PrismaSubscriptionRepository } from './repositories/PrismaSubscriptionRepository'
@@ -43,51 +44,66 @@ import { CreateCheckoutUseCase } from '../core/usecases/subscription/CreateCheck
 import { CreatePortalUseCase } from '../core/usecases/subscription/CreatePortalUseCase'
 import { HandleStripeWebhookUseCase } from '../core/usecases/subscription/HandleStripeWebhookUseCase'
 
-// ── Repositories ──────────────────────────────────────────────────────────────
-const userRepo = new PrismaUserRepository()
-const subscriptionRepo = new PrismaSubscriptionRepository()
-const fileRepo = new PrismaFileRepository()
-const accessRepo = new PrismaAccessRepository()
-const decryptTokenRepo = new PrismaDecryptTokenRepository()
-const attemptRepo = new PrismaQuizAttemptRepository()
+type Container = ReturnType<typeof createContainer>
 
-// ── External Service Adapters ─────────────────────────────────────────────────
-const fileStorage = new GCSFileStorageAdapter()
-const payment = new StripePaymentAdapter()
-const crypto = new NodeCryptoAdapter()
+function createContainer() {
+  // ── Repositories ────────────────────────────────────────────────────────────
+  const userRepo = new PrismaUserRepository()
+  const subscriptionRepo = new PrismaSubscriptionRepository()
+  const fileRepo = new PrismaFileRepository()
+  const accessRepo = new PrismaAccessRepository()
+  const decryptTokenRepo = new PrismaDecryptTokenRepository()
+  const attemptRepo = new PrismaQuizAttemptRepository()
 
-// ── Domain Services ───────────────────────────────────────────────────────────
-const subscriptionService = new SubscriptionService()
-const accessControl = new AccessControlService()
-const quizScoring = new QuizScoringService()
+  // ── External Service Adapters ────────────────────────────────────────────────
+  const fileStorage = new GCSFileStorageAdapter()
+  const payment = new StripePaymentAdapter()
+  const crypto = new NodeCryptoAdapter()
 
-// ── Use Cases (public API of the application core) ────────────────────────────
-export const container = {
-  // Auth (Keycloak-driven)
-  provisionUser: new ProvisionUserUseCase(userRepo, subscriptionRepo),
-  getUserByKeycloakId: new GetUserByKeycloakIdUseCase(userRepo),
+  // ── Domain Services ──────────────────────────────────────────────────────────
+  const subscriptionService = new SubscriptionService()
+  const accessControl = new AccessControlService()
+  const quizScoring = new QuizScoringService()
 
-  // Files
-  getPublicFiles: new GetPublicFilesUseCase(fileRepo),
-  getFileWithAccess: new GetFileWithAccessUseCase(fileRepo, subscriptionRepo, accessRepo, accessControl),
-  getMyFiles: new GetMyFilesUseCase(fileRepo),
-  uploadQuizFile: new UploadQuizFileUseCase(fileRepo, fileStorage),
-  deleteFile: new DeleteFileUseCase(fileRepo, fileStorage, accessControl),
-  downloadFile: new DownloadFileUseCase(fileRepo, decryptTokenRepo, fileStorage),
+  return {
+    // Auth (Keycloak-driven)
+    provisionUser: new ProvisionUserUseCase(userRepo, subscriptionRepo),
+    getUserByKeycloakId: new GetUserByKeycloakIdUseCase(userRepo),
 
-  // Quiz
-  issueDecryptToken: new IssueDecryptTokenUseCase(
-    subscriptionRepo,
-    accessRepo,
-    decryptTokenRepo,
-    accessControl,
-    crypto,
-  ),
-  submitQuizAttempt: new SubmitQuizAttemptUseCase(attemptRepo, quizScoring),
+    // Files
+    getPublicFiles: new GetPublicFilesUseCase(fileRepo),
+    getFileWithAccess: new GetFileWithAccessUseCase(fileRepo, subscriptionRepo, accessRepo, accessControl),
+    getMyFiles: new GetMyFilesUseCase(fileRepo),
+    uploadQuizFile: new UploadQuizFileUseCase(fileRepo, fileStorage),
+    deleteFile: new DeleteFileUseCase(fileRepo, fileStorage, accessControl),
+    downloadFile: new DownloadFileUseCase(fileRepo, decryptTokenRepo, fileStorage),
 
-  // Subscription
-  getSubscriptionStatus: new GetSubscriptionStatusUseCase(subscriptionRepo, subscriptionService),
-  createCheckout: new CreateCheckoutUseCase(subscriptionRepo, payment),
-  createPortal: new CreatePortalUseCase(subscriptionRepo, payment),
-  handleStripeWebhook: new HandleStripeWebhookUseCase(subscriptionRepo, payment),
+    // Quiz
+    issueDecryptToken: new IssueDecryptTokenUseCase(
+      subscriptionRepo,
+      accessRepo,
+      decryptTokenRepo,
+      accessControl,
+      crypto,
+    ),
+    submitQuizAttempt: new SubmitQuizAttemptUseCase(attemptRepo, quizScoring),
+
+    // Subscription
+    getSubscriptionStatus: new GetSubscriptionStatusUseCase(subscriptionRepo, subscriptionService),
+    createCheckout: new CreateCheckoutUseCase(subscriptionRepo, payment),
+    createPortal: new CreatePortalUseCase(subscriptionRepo, payment),
+    handleStripeWebhook: new HandleStripeWebhookUseCase(subscriptionRepo, payment),
+  }
 }
+
+// Lazy singleton — instantiated only on first request, never at build time
+let _container: Container | null = null
+
+export const container: Container = new Proxy({} as Container, {
+  get(_target, prop: string) {
+    if (!_container) {
+      _container = createContainer()
+    }
+    return _container[prop as keyof Container]
+  },
+})

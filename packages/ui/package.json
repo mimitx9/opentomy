@@ -9,6 +9,7 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
+    "@opentomy/types": "workspace:*",
     "react": "^18.3.0"
   },
   "devDependencies": {

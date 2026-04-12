@@ -21,7 +21,7 @@ export class PrismaQuizAttemptRepository implements IQuizAttemptRepository {
     })
     return {
       ...attempt,
-      answers: attempt.answers as QuizAttempt['answers'],
+      answers: attempt.answers as unknown as QuizAttempt['answers'],
     }
   }
 }
