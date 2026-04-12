@@ -1,6 +1,6 @@
-import { prisma } from '@opentomy/db'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { container } from '@/infrastructure/container'
 import Link from 'next/link'
 
 export default async function QuizzesPage({
@@ -13,21 +13,7 @@ export default async function QuizzesPage({
   const limit = 12
   const search = searchParams.search ?? ''
 
-  const where = {
-    isPublic: true,
-    ...(search ? { title: { contains: search, mode: 'insensitive' as const } } : {}),
-  }
-
-  const [files, total] = await Promise.all([
-    prisma.quizFile.findMany({
-      where,
-      skip: (page - 1) * limit,
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.quizFile.count({ where }),
-  ])
-
+  const { files, total } = await container.getPublicFiles.execute({ page, limit, search })
   const totalPages = Math.ceil(total / limit)
 
   return (

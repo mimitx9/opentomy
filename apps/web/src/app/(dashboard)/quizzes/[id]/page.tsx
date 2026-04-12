@@ -1,26 +1,16 @@
-import { prisma } from '@opentomy/db'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { notFound } from 'next/navigation'
+import { container } from '@/infrastructure/container'
 import Link from 'next/link'
 
 export default async function QuizDetailPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
 
-  const file = await prisma.quizFile.findUnique({ where: { id: params.id } })
-  if (!file) notFound()
-
-  let hasAccess = false
-  if (session?.user?.id) {
-    const now = new Date()
-    const sub = await prisma.subscription.findUnique({ where: { userId: session.user.id } })
-    const isActive = sub?.status === 'ACTIVE'
-    const isTrialing = sub?.status === 'TRIALING' && sub.trialEndsAt != null && sub.trialEndsAt > now
-    const directAccess = await prisma.fileAccess.findUnique({
-      where: { userId_fileId: { userId: session.user.id, fileId: params.id } },
-    })
-    hasAccess = isActive || isTrialing || (directAccess != null && (directAccess.expiresAt == null || directAccess.expiresAt > now))
-  }
+  const { file, access } = await container.getFileWithAccess.execute(
+    params.id,
+    session?.user?.id,
+  ).catch(() => notFound())
 
   return (
     <div style={{ maxWidth: 700, margin: '40px auto', padding: 32 }}>
@@ -57,7 +47,7 @@ export default async function QuizDetailPage({ params }: { params: { id: string 
                 Sign in
               </Link>
             </div>
-          ) : hasAccess ? (
+          ) : access.hasAccess ? (
             <Link
               href={`/quizzes/${params.id}/play`}
               style={{ padding: '14px 32px', background: '#2563eb', color: '#fff', borderRadius: 8, fontWeight: 700, fontSize: 16, display: 'inline-block' }}

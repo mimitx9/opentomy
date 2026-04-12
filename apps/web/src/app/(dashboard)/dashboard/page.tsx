@@ -1,24 +1,17 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { prisma } from '@opentomy/db'
+import { container } from '@/infrastructure/container'
 import Link from 'next/link'
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/login')
 
-  const [subscription, recentFiles] = await Promise.all([
-    prisma.subscription.findUnique({ where: { userId: session.user.id } }),
-    prisma.quizFile.findMany({
-      where: { isPublic: true },
-      orderBy: { createdAt: 'desc' },
-      take: 6,
-    }),
+  const [{ subscription, tier, status }, { files: recentFiles }] = await Promise.all([
+    container.getSubscriptionStatus.execute(session.user.id),
+    container.getPublicFiles.execute({ page: 1, limit: 6 }),
   ])
-
-  const tier = subscription?.tier ?? 'FREE'
-  const status = subscription?.status ?? null
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: 32 }}>

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git init:*)",
+      "Bash(python3 -m scripts.package_skill '/Users/duc/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/bde5ff28-eca9-4af8-ba1b-c952d8104daf/bcab4fc0-9f30-4464-b387-037a8404003a/skills/opentomy-architect')",
+      "Bash(git remote:*)",
+      "Bash(git add:*)",
+      "Bash(nohup python3:*)",
+      "Bash(echo \"PID: $!\")",
+      "Read(//private/tmp/**)",
+      "Bash(open /tmp/infra-devops-review.html)",
+      "Bash(python3 '/Users/duc/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/bde5ff28-eca9-4af8-ba1b-c952d8104daf/bcab4fc0-9f30-4464-b387-037a8404003a/skills/skill-creator/scripts/package_skill.py' '/Users/duc/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/bde5ff28-eca9-4af8-ba1b-c952d8104daf/bcab4fc0-9f30-4464-b387-037a8404003a/skills/infra-devops')",
+      "Read(//Users/duc/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/bde5ff28-eca9-4af8-ba1b-c952d8104daf/bcab4fc0-9f30-4464-b387-037a8404003a/skills/skill-creator/**)",
+      "Bash(python3 -m scripts.package_skill '/Users/duc/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/bde5ff28-eca9-4af8-ba1b-c952d8104daf/bcab4fc0-9f30-4464-b387-037a8404003a/skills/infra-devops')",
+      "Bash(cp -r \"/Users/duc/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/bde5ff28-eca9-4af8-ba1b-c952d8104daf/bcab4fc0-9f30-4464-b387-037a8404003a/skills/infra-devops\" /tmp/infra-devops)",
+      "Bash(python3 -m scripts.package_skill /tmp/infra-devops)"
+    ]
+  }
+}

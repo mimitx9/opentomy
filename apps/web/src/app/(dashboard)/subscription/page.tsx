@@ -1,17 +1,14 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { prisma } from '@opentomy/db'
-import { STRIPE_PRICES } from '@/lib/stripe'
-import Link from 'next/link'
+import { container } from '@/infrastructure/container'
+import { STRIPE_PRICES } from '@/lib/config'
 
 export default async function SubscriptionPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/login')
 
-  const sub = await prisma.subscription.findUnique({ where: { userId: session.user.id } })
-  const tier = sub?.tier ?? 'FREE'
-  const status = sub?.status ?? null
+  const { subscription: sub, tier, status } = await container.getSubscriptionStatus.execute(session.user.id)
   const isActive = status === 'ACTIVE' || status === 'TRIALING'
 
   const plans = [

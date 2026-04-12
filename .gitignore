@@ -40,3 +40,4 @@ apps/desktop/release/
 .vscode/
 .idea/
 *.swp
+.vercel
