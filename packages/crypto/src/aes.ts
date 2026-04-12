@@ -9,6 +9,15 @@
 
 import { isNode } from './env'
 
+/**
+ * TypeScript 5.7+ made Uint8Array generic (Uint8Array<TArrayBuffer>).
+ * WebCrypto APIs expect Uint8Array<ArrayBuffer> (not ArrayBufferLike).
+ * This helper casts safely — all Uint8Arrays here are backed by plain ArrayBuffers at runtime.
+ */
+function b(u: Uint8Array): Uint8Array<ArrayBuffer> {
+  return u as unknown as Uint8Array<ArrayBuffer>
+}
+
 export interface EncryptResult {
   ciphertext: Uint8Array
   iv: Uint8Array
@@ -78,7 +87,7 @@ async function hkdfBrowser(
   info: string,
   length = 32,
 ): Promise<Uint8Array> {
-  const baseKey = await crypto.subtle.importKey('raw', key, 'HKDF', false, ['deriveBits'])
+  const baseKey = await crypto.subtle.importKey('raw', b(key), 'HKDF', false, ['deriveBits'])
   const derived = await crypto.subtle.deriveBits(
     {
       name: 'HKDF',
@@ -94,19 +103,19 @@ async function hkdfBrowser(
 
 async function encryptBrowser(key: Uint8Array, plaintext: Uint8Array): Promise<EncryptResult> {
   const iv = crypto.getRandomValues(new Uint8Array(16))
-  const aesKey = await crypto.subtle.importKey('raw', key, { name: 'AES-CBC' }, false, ['encrypt'])
-  const encrypted = await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, aesKey, plaintext)
+  const aesKey = await crypto.subtle.importKey('raw', b(key), { name: 'AES-CBC' }, false, ['encrypt'])
+  const encrypted = await crypto.subtle.encrypt({ name: 'AES-CBC', iv: b(iv) }, aesKey, b(plaintext))
 
   const ciphertext = new Uint8Array(encrypted)
 
   // HMAC
   const hmacKey = await crypto.subtle.importKey(
-    'raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+    'raw', b(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
   )
   const hmacPayload = new Uint8Array(iv.length + ciphertext.length)
   hmacPayload.set(iv, 0)
   hmacPayload.set(ciphertext, iv.length)
-  const hmacBuf = await crypto.subtle.sign('HMAC', hmacKey, hmacPayload)
+  const hmacBuf = await crypto.subtle.sign('HMAC', hmacKey, b(hmacPayload))
 
   return { ciphertext, iv, hmac: new Uint8Array(hmacBuf) }
 }
@@ -119,16 +128,16 @@ async function decryptBrowser(
 ): Promise<Uint8Array> {
   // Verify HMAC
   const hmacKey = await crypto.subtle.importKey(
-    'raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['verify'],
+    'raw', b(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify'],
   )
   const hmacPayload = new Uint8Array(iv.length + ciphertext.length)
   hmacPayload.set(iv, 0)
   hmacPayload.set(ciphertext, iv.length)
-  const valid = await crypto.subtle.verify('HMAC', hmacKey, hmac, hmacPayload)
+  const valid = await crypto.subtle.verify('HMAC', hmacKey, b(hmac), b(hmacPayload))
   if (!valid) throw new Error('HMAC verification failed — file may be tampered')
 
-  const aesKey = await crypto.subtle.importKey('raw', key, { name: 'AES-CBC' }, false, ['decrypt'])
-  const decrypted = await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, aesKey, ciphertext)
+  const aesKey = await crypto.subtle.importKey('raw', b(key), { name: 'AES-CBC' }, false, ['decrypt'])
+  const decrypted = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: b(iv) }, aesKey, b(ciphertext))
   return new Uint8Array(decrypted)
 }
 
