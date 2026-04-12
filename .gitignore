@@ -13,11 +13,13 @@ build/
 # Turbo cache
 .turbo/
 
-# Environment files
+# Environment files — NEVER commit these
 .env
 .env.local
 .env.*.local
 *.env
+.env.production
+.env.staging
 
 # Logs
 *.log

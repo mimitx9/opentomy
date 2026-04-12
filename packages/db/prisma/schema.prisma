@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -11,8 +11,10 @@ datasource db {
 
 model User {
   id           String   @id @default(uuid())
+  // keycloakId: the Keycloak `sub` claim — null for legacy credential users
+  keycloakId   String?  @unique
   email        String   @unique
-  passwordHash String?
+  passwordHash String?  // null for Keycloak-authenticated users
   name         String?
   avatarUrl    String?
   role         UserRole @default(USER)
@@ -27,6 +29,7 @@ model User {
   decryptTokens DecryptToken[]
 
   @@index([email])
+  @@index([keycloakId])
 }
 
 enum UserRole {
@@ -38,8 +41,8 @@ enum UserRole {
 model Session {
   id           String   @id @default(uuid())
   userId       String
-  token        String   @unique
-  refreshToken String   @unique @default(uuid())
+  token        String   @unique @db.VarChar(500)
+  refreshToken String   @unique @default(uuid()) @db.VarChar(500)
   expiresAt    DateTime
   createdAt    DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -54,9 +57,9 @@ model Session {
 model Subscription {
   id                   String             @id @default(uuid())
   userId               String             @unique
-  stripeCustomerId     String             @unique
-  stripeSubscriptionId String?            @unique
-  stripePriceId        String?
+  stripeCustomerId     String             @unique @db.VarChar(255)
+  stripeSubscriptionId String?            @unique @db.VarChar(255)
+  stripePriceId        String?            @db.VarChar(255)
   status               SubscriptionStatus @default(TRIALING)
   tier                 SubscriptionTier   @default(FREE)
   trialEndsAt          DateTime?
@@ -93,13 +96,14 @@ enum SubscriptionTier {
 model QuizFile {
   id             String   @id @default(uuid())
   creatorId      String
-  title          String
-  description    String?
+  title          String   @db.VarChar(500)
+  description    String?  @db.Text
   questionCount  Int
-  tags           String[]
-  thumbnailUrl   String?
-  fileKey        String   @unique // S3 object key
-  fileSize       Int      // bytes
+  // MySQL does not have native array type — stored as JSON array ["tag1","tag2"]
+  tags           Json
+  thumbnailUrl   String?  @db.VarChar(2048)
+  fileKey        String   @unique @db.VarChar(767)
+  fileSize       Int
   contentVersion Int      @default(1)
   isPublic       Boolean  @default(false)
   downloadCount  Int      @default(0)
@@ -112,7 +116,6 @@ model QuizFile {
 
   @@index([creatorId])
   @@index([isPublic])
-  @@index([tags])
 }
 
 // ─── Access Control ───────────────────────────────────────────────────────────
@@ -147,7 +150,7 @@ model DecryptToken {
   id        String    @id @default(uuid())
   userId    String
   fileId    String
-  token     String    @unique
+  token     String    @unique @db.VarChar(500)
   usedAt    DateTime?
   expiresAt DateTime
   createdAt DateTime  @default(now())
@@ -170,7 +173,7 @@ model QuizAttempt {
   percent     Float?
   passed      Boolean?
   completedAt DateTime?
-  answers     Json      // Array of { questionId, selectedIndex, isCorrect, timeSpentMs }
+  answers     Json
   startedAt   DateTime  @default(now())
 
   user User     @relation(fields: [userId], references: [id], onDelete: Cascade)

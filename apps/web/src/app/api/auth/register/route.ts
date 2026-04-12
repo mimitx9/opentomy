@@ -1,46 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@opentomy/db'
-import bcrypt from 'bcryptjs'
-import { z } from 'zod'
+import { NextResponse } from 'next/server'
 
-const schema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  name: z.string().optional(),
-})
-
-export async function POST(req: NextRequest) {
-  const body = await req.json()
-  const parsed = schema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
-  }
-
-  const { email, password, name } = parsed.data
-
-  const existing = await prisma.user.findUnique({ where: { email } })
-  if (existing) {
-    return NextResponse.json({ error: 'Email already registered' }, { status: 409 })
-  }
-
-  const passwordHash = await bcrypt.hash(password, 12)
-  const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
-
-  const user = await prisma.user.create({
-    data: {
-      email,
-      passwordHash,
-      name,
-      subscription: {
-        create: {
-          stripeCustomerId: `pending_${Date.now()}`,
-          status: 'TRIALING',
-          tier: 'FREE',
-          trialEndsAt,
-        },
-      },
+/**
+ * Registration is handled by Keycloak.
+ *
+ * To register a new user:
+ *  - Self-service: enable Keycloak self-registration at
+ *    {KEYCLOAK_ISSUER}/protocol/openid-connect/registrations
+ *  - Admin: create users in Keycloak Admin Console → Realm → Users → Add user
+ *
+ * On first login via Keycloak, the user record is automatically created
+ * in our database by ProvisionUserUseCase.
+ */
+export async function POST() {
+  return NextResponse.json(
+    {
+      error: 'Registration is handled by Keycloak.',
+      hint: 'Use the Keycloak sign-in page to register or ask your administrator.',
     },
-  })
-
-  return NextResponse.json({ user: { id: user.id, email: user.email } }, { status: 201 })
+    { status: 410 }, // 410 Gone — endpoint intentionally removed
+  )
 }

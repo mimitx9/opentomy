@@ -1,0 +1,79 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Opentomy — Production Docker Compose
+# VPS: FPT Cloud 2 vCPU · 8 GB RAM · Ubuntu 22.04 · IP: 64.239.26.139
+#
+# External services (NOT managed here):
+#   MySQL     — 109.237.64.44:9936
+#   Keycloak  — https://tata.ezsolutions.asia/auth (realm: fauworld)
+#   Storage   — Google Cloud Storage (bucket: faquiz2)
+#
+# Services managed here:
+#   migrate   — One-shot Prisma migration (runs then exits)
+#   web       — Next.js application
+#   nginx     — Reverse proxy + SSL termination
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  opentomy:
+    driver: bridge
+
+volumes:
+  nginx_certs:
+
+services:
+  # ── Prisma Migrate (init container) ───────────────────────────────────────
+  # Runs DB migrations against the external MySQL instance on every deploy.
+  # Exits with code 0 on success; web service waits for it to complete.
+  migrate:
+    image: node:20-alpine
+    networks: [opentomy]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    volumes:
+      - ./packages/db:/app/packages/db
+      - ./packages/db/node_modules:/app/packages/db/node_modules
+    working_dir: /app
+    command: >
+      sh -c "
+        npm install -g prisma@latest --quiet &&
+        prisma migrate deploy --schema=packages/db/prisma/schema.prisma &&
+        echo 'Migrations applied.'
+      "
+    restart: on-failure
+
+  # ── Next.js Web App ────────────────────────────────────────────────────────
+  web:
+    image: ghcr.io/${GITHUB_REPOSITORY:-your-org/opentomy}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    networks: [opentomy]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    env_file: .env
+    environment:
+      NODE_ENV: production
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ── Nginx (reverse proxy + SSL) ───────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    networks: [opentomy]
+    depends_on:
+      web:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - nginx_certs:/etc/letsencrypt:ro
+      - ./nginx/certbot/www:/var/www/certbot:ro

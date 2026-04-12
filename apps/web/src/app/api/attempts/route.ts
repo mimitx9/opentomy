@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@opentomy/db'
 import { z } from 'zod'
+import { authOptions } from '@/lib/auth'
+import { container } from '@/infrastructure/container'
+import { toHttpResponse } from '@/lib/httpError'
 
 const schema = z.object({
   file_id: z.string().uuid(),
@@ -23,35 +24,28 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const parsed = schema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
+  }
 
-  const { file_id, answers } = parsed.data
-
-  const correctCount = answers.filter(a => a.is_correct).length
-  const maxScore = answers.length
-  const score = correctCount
-  const percent = maxScore > 0 ? (correctCount / maxScore) * 100 : 0
-
-  const attempt = await prisma.quizAttempt.create({
-    data: {
+  try {
+    const result = await container.submitQuizAttempt.execute({
+      fileId: parsed.data.file_id,
       userId: session.user.id,
-      fileId: file_id,
-      score,
-      maxScore,
-      percent,
-      completedAt: new Date(),
-      answers,
-    },
-  })
+      answers: parsed.data.answers,
+    })
 
-  return NextResponse.json({
-    attempt_id: attempt.id,
-    score,
-    max_score: maxScore,
-    percent,
-    passed: percent >= 60,
-    answers,
-    started_at: attempt.startedAt.toISOString(),
-    completed_at: attempt.completedAt!.toISOString(),
-  })
+    return NextResponse.json({
+      attempt_id: result.attemptId,
+      score: result.score,
+      max_score: result.maxScore,
+      percent: result.percent,
+      passed: result.passed,
+      answers: result.answers,
+      started_at: result.startedAt,
+      completed_at: result.completedAt,
+    })
+  } catch (error) {
+    return toHttpResponse(error)
+  }
 }

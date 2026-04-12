@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@opentomy/db'
-import { stripe } from '@/lib/stripe'
 import { z } from 'zod'
+import { authOptions } from '@/lib/auth'
+import { container } from '@/infrastructure/container'
+import { toHttpResponse } from '@/lib/httpError'
 
 const schema = z.object({
   price_id: z.string(),
@@ -21,36 +21,17 @@ export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
 
-  let subscription = await prisma.subscription.findUnique({ where: { userId: session.user.id } })
-
-  let customerId = subscription?.stripeCustomerId
-  if (!customerId || customerId.startsWith('pending_')) {
-    const customer = await stripe.customers.create({
+  try {
+    const result = await container.createCheckout.execute({
+      userId: session.user.id,
       email: session.user.email!,
-      name: session.user.name ?? undefined,
-      metadata: { userId: session.user.id },
+      name: session.user.name,
+      priceId: parsed.data.price_id,
+      successUrl: parsed.data.success_url,
+      cancelUrl: parsed.data.cancel_url,
     })
-    customerId = customer.id
-    await prisma.subscription.upsert({
-      where: { userId: session.user.id },
-      update: { stripeCustomerId: customerId },
-      create: {
-        userId: session.user.id,
-        stripeCustomerId: customerId,
-        status: 'TRIALING',
-        tier: 'FREE',
-      },
-    })
+    return NextResponse.json({ checkout_url: result.checkoutUrl })
+  } catch (error) {
+    return toHttpResponse(error)
   }
-
-  const checkoutSession = await stripe.checkout.sessions.create({
-    customer: customerId,
-    mode: 'subscription',
-    line_items: [{ price: parsed.data.price_id, quantity: 1 }],
-    success_url: parsed.data.success_url,
-    cancel_url: parsed.data.cancel_url,
-    metadata: { userId: session.user.id },
-  })
-
-  return NextResponse.json({ checkout_url: checkoutSession.url })
 }
