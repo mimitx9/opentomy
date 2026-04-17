@@ -11,9 +11,10 @@ export async function GET() {
   try {
     await prisma.$queryRaw`SELECT 1`
     return NextResponse.json({ status: 'ok', timestamp: new Date().toISOString() })
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
     return NextResponse.json(
-      { status: 'error', message: 'Database unreachable' },
+      { status: 'error', message: 'Database unreachable', detail: message },
       { status: 503 },
     )
   }
