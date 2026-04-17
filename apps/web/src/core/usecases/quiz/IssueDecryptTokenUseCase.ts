@@ -2,11 +2,11 @@ import type { ISubscriptionRepository } from '../../ports/outbound/repositories/
 import type { IAccessRepository } from '../../ports/outbound/repositories/IAccessRepository'
 import type { IDecryptTokenRepository } from '../../ports/outbound/repositories/IDecryptTokenRepository'
 import type { AccessControlService } from '../../domain/services/AccessControlService'
-import type { ICryptoPort } from '../../ports/outbound/ICryptoPort'
 import {
   AccessDeniedException,
   ServerMisconfigurationException,
 } from '../../domain/exceptions/DomainException'
+import { deriveStableFileToken } from '../files/PackQuizFileUseCase'
 
 export interface IssueDecryptTokenInput {
   fileId: string
@@ -24,7 +24,6 @@ export class IssueDecryptTokenUseCase {
     private readonly accessRepo: IAccessRepository,
     private readonly decryptTokenRepo: IDecryptTokenRepository,
     private readonly accessControl: AccessControlService,
-    private readonly crypto: ICryptoPort,
   ) {}
 
   async execute(input: IssueDecryptTokenInput): Promise<IssueDecryptTokenOutput> {
@@ -45,19 +44,19 @@ export class IssueDecryptTokenUseCase {
     const serverSecret = process.env.SERVER_DECRYPT_SECRET
     if (!serverSecret) throw new ServerMisconfigurationException()
 
-    const { token, expiresAt } = await this.crypto.generateDecryptToken(
-      serverSecret,
-      input.fileId,
-      input.userId,
-    )
+    // Derive a stable file-level token (same for all authorized users).
+    // The .optmy file is packed ONCE with this token, so all decryption calls
+    // must use the same token. Access control is already enforced above.
+    const stableToken = deriveStableFileToken(serverSecret, input.fileId)
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 min TTL for DB record
 
     await this.decryptTokenRepo.create({
       userId: input.userId,
       fileId: input.fileId,
-      token,
+      token: stableToken,
       expiresAt,
     })
 
-    return { decryptToken: token, expiresAt: expiresAt.toISOString() }
+    return { decryptToken: stableToken, expiresAt: expiresAt.toISOString() }
   }
 }

@@ -33,6 +33,7 @@ import { GetPublicFilesUseCase } from '../core/usecases/files/GetPublicFilesUseC
 import { GetFileWithAccessUseCase } from '../core/usecases/files/GetFileWithAccessUseCase'
 import { GetMyFilesUseCase } from '../core/usecases/files/GetMyFilesUseCase'
 import { UploadQuizFileUseCase } from '../core/usecases/files/UploadQuizFileUseCase'
+import { PackQuizFileUseCase } from '../core/usecases/files/PackQuizFileUseCase'
 import { DeleteFileUseCase } from '../core/usecases/files/DeleteFileUseCase'
 import { DownloadFileUseCase } from '../core/usecases/files/DownloadFileUseCase'
 // Quiz
@@ -75,6 +76,7 @@ function createContainer() {
     getFileWithAccess: new GetFileWithAccessUseCase(fileRepo, subscriptionRepo, accessRepo, accessControl),
     getMyFiles: new GetMyFilesUseCase(fileRepo),
     uploadQuizFile: new UploadQuizFileUseCase(fileRepo, fileStorage),
+    packQuizFile: new PackQuizFileUseCase(fileRepo, fileStorage),
     deleteFile: new DeleteFileUseCase(fileRepo, fileStorage, accessControl),
     downloadFile: new DownloadFileUseCase(fileRepo, decryptTokenRepo, fileStorage),
 
@@ -84,7 +86,6 @@ function createContainer() {
       accessRepo,
       decryptTokenRepo,
       accessControl,
-      crypto,
     ),
     submitQuizAttempt: new SubmitQuizAttemptUseCase(attemptRepo, quizScoring),
 
