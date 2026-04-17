@@ -54,7 +54,11 @@ export const authOptions: NextAuthOptions = {
         })
         return true
       } catch (err) {
-        console.error('[NextAuth] ProvisionUser failed', err)
+        console.error('[NextAuth] ProvisionUser failed — keycloakId:', keycloakId, 'error:', err)
+        if (err instanceof Error) {
+          console.error('[NextAuth] Error message:', err.message)
+          console.error('[NextAuth] Error stack:', err.stack)
+        }
         return false
       }
     },
