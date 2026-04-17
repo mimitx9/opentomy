@@ -12,28 +12,29 @@
     "db:migrate": "cd ../../packages/db && prisma migrate dev"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/s3-request-presigner": "^3.600.0",
+    "@google-cloud/storage": "^7.12.0",
     "@opentomy/crypto": "workspace:*",
     "@opentomy/db": "workspace:*",
     "@opentomy/types": "workspace:*",
     "@opentomy/ui": "workspace:*",
+    "@prisma/nextjs-monorepo-workaround-plugin": "7.7.0",
+    "bcryptjs": "^2.4.3",
     "next": "^14.2.0",
+    "next-auth": "^4.24.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "next-auth": "^4.24.0",
     "stripe": "^15.7.0",
-    "@aws-sdk/client-s3": "^3.600.0",
-    "@aws-sdk/s3-request-presigner": "^3.600.0",
-    "@google-cloud/storage": "^7.12.0",
-    "bcryptjs": "^2.4.3",
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
-    "@types/node": "^20.0.0",
-    "@types/bcryptjs": "^2.4.6",
-    "typescript": "^5.4.0",
     "eslint": "^8.57.0",
-    "eslint-config-next": "^14.2.0"
+    "eslint-config-next": "^14.2.0",
+    "typescript": "^5.4.0"
   }
 }

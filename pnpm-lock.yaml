@@ -93,6 +93,9 @@ importers:
       '@opentomy/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@prisma/nextjs-monorepo-workaround-plugin':
+        specifier: 7.7.0
+        version: 7.7.0
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
@@ -813,6 +816,9 @@ packages:
 
   '@prisma/get-platform@5.22.0':
     resolution: {integrity: sha512-pHhpQdr1UPFpt+zFfnPazhulaZYCUqeIcPpJViYoq9R+D/yw4fjE+CtnsnKzPYm0ddUbeXUzjGVGIRVgPDCk4Q==}
+
+  '@prisma/nextjs-monorepo-workaround-plugin@7.7.0':
+    resolution: {integrity: sha512-EWZ0wtla1i4xKG5k0L1tm9yAzxbbMjFO24QvSB6hLaP8v6Do5S26CjDqB5xWLl9mSGiDQJ4FvBddt+IpZf03Jg==}
 
   '@rolldown/pluginutils@1.0.0-beta.27':
     resolution: {integrity: sha512-+d0F4MKMCbeVUJwG96uQ4SgAznZNSq93I3V+9NHA4OpvqG8mRCpGdKmK8l/dl02h2CCDHwW2FqilnTyDcAnqjA==}
@@ -4771,6 +4777,8 @@ snapshots:
   '@prisma/get-platform@5.22.0':
     dependencies:
       '@prisma/debug': 5.22.0
+
+  '@prisma/nextjs-monorepo-workaround-plugin@7.7.0': {}
 
   '@rolldown/pluginutils@1.0.0-beta.27': {}
 
