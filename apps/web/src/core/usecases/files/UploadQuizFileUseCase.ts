@@ -35,7 +35,9 @@ export class UploadQuizFileUseCase {
       throw new InvalidFileException()
     }
 
-    const fileId = randomUUID()
+    // Use the file_id embedded in the header so that IssueDecryptTokenUseCase
+    // can derive the same token (HMAC(secret, file_id)) for decryption.
+    const fileId = header.file_id || randomUUID()
     const fileKey = `quizzes/${fileId}.optmy`
 
     await this.fileStorage.upload(fileKey, input.buffer)
