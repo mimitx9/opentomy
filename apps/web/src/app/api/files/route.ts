@@ -1,8 +1,20 @@
+export const maxDuration = 60
+
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { resolveIdentity } from '@/lib/apiAuth'
 import { container } from '@/infrastructure/container'
 import { toHttpResponse } from '@/lib/httpError'
+import { prisma } from '@opentomy/db'
+
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000'
+
+async function ensureSystemUser() {
+  await prisma.user.upsert({
+    where: { id: SYSTEM_USER_ID },
+    create: { id: SYSTEM_USER_ID, email: 'system@opentomy.internal', name: 'System' },
+    update: {},
+  })
+}
 
 // GET /api/files — list public files
 export async function GET(req: NextRequest) {
@@ -25,10 +37,10 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/files — upload a .optmy file
+// POST /api/files — upload a .optmy/.tomy file
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) {
+  const identity = await resolveIdentity(req)
+  if (!identity) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -37,11 +49,13 @@ export async function POST(req: NextRequest) {
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
   try {
+    const creatorId = identity.isApiKey ? SYSTEM_USER_ID : identity.userId
+    if (identity.isApiKey) await ensureSystemUser()
     const buffer = Buffer.from(await file.arrayBuffer())
     const result = await container.uploadQuizFile.execute({
       buffer,
       fileSize: file.size,
-      creatorId: session.user.id,
+      creatorId,
     })
     return NextResponse.json({ file_id: result.fileId, message: 'Upload successful' }, { status: 201 })
   } catch (error) {

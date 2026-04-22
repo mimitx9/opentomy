@@ -31,7 +31,7 @@ export class GCSFileStorageAdapter implements IFileStoragePort {
     this.storage = new Storage({ credentials })
     this.bucket = process.env.GCS_BUCKET ?? 'faquiz2'
     // Ensure prefix ends with "/" if non-empty
-    const rawPrefix = process.env.GCS_FILE_PREFIX ?? 'opentomy/'
+    const rawPrefix = (process.env.GCS_FILE_PREFIX ?? 'opentomy/').trim()
     this.prefix = rawPrefix.endsWith('/') ? rawPrefix : `${rawPrefix}/`
     this.publicBaseUrl = process.env.GCS_PUBLIC_BASE_URL ?? null
   }

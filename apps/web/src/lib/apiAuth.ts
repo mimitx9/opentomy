@@ -37,7 +37,7 @@ export async function resolveIdentity(req: NextRequest): Promise<ApiIdentity | n
   const authHeader = req.headers.get('authorization') ?? ''
   if (authHeader.startsWith('Bearer ')) {
     const token = authHeader.slice(7).trim()
-    const secret = process.env.API_SECRET_KEY ?? ''
+    const secret = (process.env.API_SECRET_KEY ?? '').trim()
     if (secret && safeCompare(token, secret)) {
       const userId = process.env.API_KEY_USER_ID ?? 'api-key-user'
       return { userId, isApiKey: true }

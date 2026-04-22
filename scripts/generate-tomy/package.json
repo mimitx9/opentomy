@@ -1,0 +1,23 @@
+{
+  "name": "generate-tomy",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "generate": "tsx src/index.ts",
+    "generate:sample": "tsx src/index.ts --sample"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.9.0",
+    "sql.js": "^1.12.0",
+    "dotenv": "^16.4.5",
+    "mysql2": "^3.9.7",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/sql.js": "^1.4.9",
+    "@types/node": "^20.0.0",
+    "@types/uuid": "^9.0.8",
+    "tsx": "^4.7.3",
+    "typescript": "^5.4.0"
+  }
+}

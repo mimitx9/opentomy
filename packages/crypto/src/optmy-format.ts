@@ -38,6 +38,8 @@ export interface OptmyHeader {
   thumbnail_url?: string | null
   tags: string[]
   schema_version: string
+  /** 'json' = legacy quiz payload; 'sqlite' = embedded SQLite database */
+  content_type?: 'json' | 'sqlite'
 }
 
 export interface ParsedOptmyFile {
@@ -143,6 +145,39 @@ export async function packQuiz(
   const plaintext = new TextEncoder().encode(JSON.stringify(payload))
   const encResult = await encrypt(actualKey, plaintext)
   return serializeOptmyBuffer(header, encResult, flags)
+}
+
+/**
+ * Pack a raw binary (e.g. SQLite database) into a .tomy ArrayBuffer.
+ * The payload is encrypted as-is without JSON serialization.
+ */
+export async function packRaw(
+  masterKey: Uint8Array,
+  decryptToken: string,
+  rawPayload: Uint8Array,
+  header: OptmyHeader,
+  flags: number,
+): Promise<ArrayBuffer> {
+  const fileKey = await deriveFileKey(masterKey, header.file_id)
+  const actualKey = await deriveActualKey(fileKey, decryptToken)
+  const encResult = await encrypt(actualKey, rawPayload)
+  return serializeOptmyBuffer(header, encResult, flags)
+}
+
+/**
+ * Unpack a .tomy file that contains a raw binary payload (e.g. SQLite).
+ * Returns the decrypted bytes directly.
+ */
+export async function unpackRaw(
+  masterKey: Uint8Array,
+  decryptToken: string,
+  buffer: ArrayBuffer,
+): Promise<{ header: OptmyHeader; payload: Uint8Array }> {
+  const parsed = parseOptmyBuffer(buffer)
+  const fileKey = await deriveFileKey(masterKey, parsed.header.file_id)
+  const actualKey = await deriveActualKey(fileKey, decryptToken)
+  const payload = await decrypt(actualKey, parsed.iv, parsed.hmac, parsed.ciphertext)
+  return { header: parsed.header, payload }
 }
 
 /**
