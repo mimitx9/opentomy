@@ -6,9 +6,8 @@ export interface QuizFile {
   questionCount: number
   tags: string[]
   thumbnailUrl?: string | null
-  fileKey: string
-  fileSize: number
-  contentVersion: number
+  fileKey?: string | null
+  fileSize?: number | null
   isPublic: boolean
   downloadCount: number
   createdAt: Date

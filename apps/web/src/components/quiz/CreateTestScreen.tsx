@@ -1,22 +1,18 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { getSubjectStats, getSystemStats, queryQuestions } from '@/lib/sqlite/sqliteReader'
 import { useQuizStore } from '@/lib/store/quizStore'
-import type { SubjectStat, SystemStat, QuizMode } from '@/types/quizSession'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SqlJsDatabase = any
+import type { SubjectStat, SystemStat, QuizMode, QuizQuestion } from '@/types/quizSession'
 
 interface Props {
-  db: SqlJsDatabase
+  fileId: string
   subjectStats: SubjectStat[]
   systemStats: SystemStat[]
   totalQuestions: number
   onStart: () => void
 }
 
-export default function CreateTestScreen({ db, subjectStats, systemStats, totalQuestions, onStart }: Props) {
+export default function CreateTestScreen({ fileId, subjectStats, systemStats, totalQuestions, onStart }: Props) {
   const loadQuestions = useQuizStore(s => s.loadQuestions)
 
   const [mode, setMode] = useState<QuizMode>('tutor')
@@ -45,23 +41,37 @@ export default function CreateTestScreen({ db, subjectStats, systemStats, totalQ
   const handleGenerate = useCallback(async () => {
     setIsGenerating(true)
     try {
-      const questions = queryQuestions(db, {
-        subjectIds: selectedSubjectIds.length > 0 ? selectedSubjectIds : undefined,
-        systems: selectedSystems.length > 0 ? selectedSystems : undefined,
-        limit: numQuestions,
-        shuffle: true,
+      const res = await fetch(`/api/files/${fileId}/questions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subjectIds: selectedSubjectIds.length > 0 ? selectedSubjectIds : undefined,
+          systems: selectedSystems.length > 0 ? selectedSystems : undefined,
+          limit: numQuestions,
+          shuffle: true,
+        }),
       })
+
+      if (!res.ok) {
+        alert('Failed to load questions. Please try again.')
+        return
+      }
+
+      const questions: QuizQuestion[] = await res.json()
       if (questions.length === 0) {
         alert('No questions found matching the selected filters.')
         return
       }
+
       const timeLimitSeconds = mode === 'timed' ? numQuestions * 90 : undefined
       loadQuestions(questions, mode, timeLimitSeconds)
       onStart()
+    } catch {
+      alert('Failed to load questions. Please try again.')
     } finally {
       setIsGenerating(false)
     }
-  }, [db, selectedSubjectIds, selectedSystems, numQuestions, mode, loadQuestions, onStart])
+  }, [fileId, selectedSubjectIds, selectedSystems, numQuestions, mode, loadQuestions, onStart])
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
@@ -234,7 +244,7 @@ export default function CreateTestScreen({ db, subjectStats, systemStats, totalQ
             transition: 'background 0.15s',
           }}
         >
-          {isGenerating ? 'GENERATING...' : 'GENERATE TEST'}
+          {isGenerating ? 'LOADING...' : 'GENERATE TEST'}
         </button>
       </div>
     </div>

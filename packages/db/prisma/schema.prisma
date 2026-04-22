@@ -95,28 +95,108 @@ enum SubscriptionTier {
 // ─── Quiz Files ───────────────────────────────────────────────────────────────
 
 model QuizFile {
-  id             String   @id @default(uuid())
-  creatorId      String
-  title          String   @db.VarChar(500)
-  description    String?  @db.Text
-  questionCount  Int
+  id            String   @id @default(uuid())
+  creatorId     String
+  title         String   @db.VarChar(500)
+  description   String?  @db.Text
+  questionCount Int
   // MySQL does not have native array type — stored as JSON array ["tag1","tag2"]
-  tags           Json
-  thumbnailUrl   String?  @db.VarChar(2048)
-  fileKey        String   @unique @db.VarChar(767)
-  fileSize       Int
-  contentVersion Int      @default(1)
-  isPublic       Boolean  @default(false)
-  downloadCount  Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  tags          Json
+  thumbnailUrl  String?  @db.VarChar(2048)
+  fileKey       String?  @unique @db.VarChar(767)
+  fileSize      Int?
+  isPublic      Boolean  @default(false)
+  downloadCount Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   creator      User         @relation("creator", fields: [creatorId], references: [id])
   fileAccesses FileAccess[]
   quizAttempts QuizAttempt[]
+  subjects     Subject[]
 
   @@index([creatorId])
   @@index([isPublic])
+}
+
+// ─── Quiz Content (imported from .optmy SQLite) ───────────────────────────────
+
+model Subject {
+  id        Int      @id @default(autoincrement())
+  fileId    String
+  code      String
+  name      String
+  sortOrder Int      @default(0)
+
+  file  QuizFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  exams Exam[]
+
+  @@index([fileId])
+}
+
+model Exam {
+  id        Int     @id @default(autoincrement())
+  subjectId Int
+  code      String
+  name      String
+  sortOrder Int     @default(0)
+
+  subject  Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  quizSets QuizSet[]
+}
+
+model QuizSet {
+  id             Int    @id @default(autoincrement())
+  examId         Int
+  code           String
+  name           String
+  totalQuestions Int    @default(0)
+  sortOrder      Int    @default(0)
+
+  exam      Exam       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questions Question[]
+}
+
+model Question {
+  id         Int    @id @default(autoincrement())
+  quizSetId  Int
+  type       String @default("multiple_choice")
+  stem       String @db.Text
+  imageUrl   String?
+  difficulty Int    @default(0)
+  sortOrder  Int    @default(0)
+
+  quizSet  QuizSet           @relation(fields: [quizSetId], references: [id], onDelete: Cascade)
+  answers  Answer[]
+  profiles QuestionProfile[]
+
+  @@index([quizSetId])
+}
+
+model Answer {
+  id          Int     @id @default(autoincrement())
+  questionId  Int
+  text        String  @db.Text
+  isCorrect   Boolean @default(false)
+  explanation String? @db.Text
+  imageUrl    String?
+  sortOrder   Int     @default(0)
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+}
+
+model QuestionProfile {
+  id            Int    @id @default(autoincrement())
+  questionId    Int
+  attributeType String
+  value         String
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@index([attributeType, value])
 }
 
 // ─── Access Control ───────────────────────────────────────────────────────────

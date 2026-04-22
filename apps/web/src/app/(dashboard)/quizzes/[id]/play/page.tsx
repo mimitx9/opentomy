@@ -2,22 +2,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
-import { unpackRaw } from '@opentomy/crypto'
 import { SubscriptionGate } from '@opentomy/ui'
-import { loadDatabase, getSubjectStats, getSystemStats, getTotalQuestions } from '@/lib/sqlite/sqliteReader'
 import { useQuizStore } from '@/lib/store/quizStore'
 import type { SubjectStat, SystemStat } from '@/types/quizSession'
 import CreateTestScreen from '@/components/quiz/CreateTestScreen'
 import QuizLayout from '@/components/quiz/QuizLayout'
 import QuestionDisplay from '@/components/quiz/QuestionDisplay'
 import AnswerChoices from '@/components/quiz/AnswerChoices'
-
-const APP_MASTER_KEY = new Uint8Array(
-  (process.env.NEXT_PUBLIC_APP_MASTER_KEY ?? '').match(/.{2}/g)?.map(b => parseInt(b, 16)) ?? []
-)
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SqlJsDatabase = any
 
 type PlayState = 'loading' | 'configure' | 'playing' | 'no_access' | 'error'
 
@@ -27,7 +18,6 @@ export default function PlayPage() {
   const router = useRouter()
 
   const [state, setState] = useState<PlayState>('loading')
-  const [db, setDb] = useState<SqlJsDatabase>(null)
   const [subjectStats, setSubjectStats] = useState<SubjectStat[]>([])
   const [systemStats, setSystemStats] = useState<SystemStat[]>([])
   const [totalQuestions, setTotalQuestions] = useState(0)
@@ -38,47 +28,34 @@ export default function PlayPage() {
   const endBlock = useQuizStore(s => s.endBlock)
   const reset = useQuizStore(s => s.reset)
 
-  const loadAndDecrypt = useCallback(async () => {
+  const loadMetadata = useCallback(async () => {
     setState('loading')
     try {
-      // 1. Request decrypt token
-      const tokenRes = await fetch('/api/decrypt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_id: fileId }),
-      })
+      const [subjectsRes, systemsRes] = await Promise.all([
+        fetch(`/api/files/${fileId}/subjects`),
+        fetch(`/api/files/${fileId}/systems`),
+      ])
 
-      if (tokenRes.status === 402 || tokenRes.status === 403) {
-        const data = await tokenRes.json()
-        setAccessInfo({ tier: data.tier ?? 'FREE', trialEndsAt: data.trial_ends_at })
+      if (subjectsRes.status === 403 || subjectsRes.status === 402) {
+        const data = await subjectsRes.json()
+        setAccessInfo({ tier: data.tier ?? 'FREE', trialEndsAt: data.trial_ends_at ?? null })
         setState('no_access')
         return
       }
 
-      if (!tokenRes.ok) throw new Error('Failed to get decrypt token')
-      const { decrypt_token } = await tokenRes.json()
+      if (!subjectsRes.ok || !systemsRes.ok) throw new Error('Failed to load quiz data')
 
-      // 2. Download .optmy file
-      const fileRes = await fetch(`/api/files/${fileId}/download`)
-      if (!fileRes.ok) throw new Error('Failed to fetch file')
-      const buffer = await fileRes.arrayBuffer()
+      const subjectsData: { id: number; code: string; name: string; sortOrder: number; questionCount: number }[] = await subjectsRes.json()
+      const systemsData: { name: string; questionCount: number }[] = await systemsRes.json()
 
-      // 3. Decrypt raw SQLite bytes
-      const { payload: sqliteBytes } = await unpackRaw(APP_MASTER_KEY, decrypt_token, buffer)
-      const sqliteBuffer = sqliteBytes.buffer.slice(sqliteBytes.byteOffset, sqliteBytes.byteOffset + sqliteBytes.byteLength) as ArrayBuffer
+      const subjects: SubjectStat[] = subjectsData.map(s => ({
+        subject: { id: s.id, code: s.code, name: s.name, sort_order: s.sortOrder },
+        questionCount: s.questionCount,
+      }))
 
-      // 4. Load into sql.js
-      const database = await loadDatabase(sqliteBuffer)
-      setDb(database)
-
-      // 5. Read metadata for CreateTestScreen
-      const subjects = getSubjectStats(database)
-      const systems = getSystemStats(database)
-      const total = getTotalQuestions(database)
       setSubjectStats(subjects)
-      setSystemStats(systems)
-      setTotalQuestions(total)
-
+      setSystemStats(systemsData)
+      setTotalQuestions(subjectsData.reduce((sum, s) => sum + s.questionCount, 0))
       setState('configure')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error')
@@ -89,13 +66,11 @@ export default function PlayPage() {
   useEffect(() => {
     if (!session) return
     reset()
-    loadAndDecrypt()
+    loadMetadata()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, fileId])
 
-  const handleEndBlock = useCallback(() => {
-    endBlock()
-  }, [endBlock])
+  const handleEndBlock = useCallback(() => { endBlock() }, [endBlock])
 
   if (!session) {
     return <div style={{ padding: 40, textAlign: 'center' }}>Please sign in to play.</div>
@@ -104,8 +79,7 @@ export default function PlayPage() {
   if (state === 'loading') {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>
-        <div style={{ fontSize: 16, marginBottom: 8 }}>Decrypting file...</div>
-        <div style={{ fontSize: 13, color: '#94a3b8' }}>Loading SQLite database</div>
+        <div style={{ fontSize: 16, marginBottom: 8 }}>Loading quiz...</div>
       </div>
     )
   }
@@ -115,7 +89,7 @@ export default function PlayPage() {
       <div style={{ padding: 40, textAlign: 'center', color: '#dc2626' }}>
         <div style={{ fontSize: 16, marginBottom: 8 }}>Error: {error}</div>
         <button
-          onClick={loadAndDecrypt}
+          onClick={loadMetadata}
           style={{ padding: '8px 20px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
         >
           Retry
@@ -137,10 +111,10 @@ export default function PlayPage() {
     )
   }
 
-  if (state === 'configure' && db) {
+  if (state === 'configure') {
     return (
       <CreateTestScreen
-        db={db}
+        fileId={fileId}
         subjectStats={subjectStats}
         systemStats={systemStats}
         totalQuestions={totalQuestions}

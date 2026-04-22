@@ -8,9 +8,7 @@ export interface CreateFileInput {
   questionCount: number
   tags: string[]
   thumbnailUrl?: string | null
-  fileKey: string
-  fileSize: number
-  contentVersion: number
+  fileSize?: number
   isPublic: boolean
 }
 

@@ -29,15 +29,25 @@ export default function UploadPage() {
     if (!file) return
     setUploading(true)
     setError('')
-    const form = new FormData()
-    form.append('file', file)
-    const res = await fetch('/api/files', { method: 'POST', body: form })
-    const data = await res.json()
-    setUploading(false)
-    if (!res.ok) {
-      setError(data.error ?? 'Upload failed')
-    } else {
-      router.push(`/quizzes/${data.file_id}`)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/files', { method: 'POST', body: form })
+      let data: Record<string, unknown> = {}
+      try {
+        data = await res.json()
+      } catch {
+        throw new Error('Server error or timeout. Please try again.')
+      }
+      if (!res.ok) {
+        setError((data.error as string) ?? 'Upload failed')
+      } else {
+        router.push(`/quizzes/${data.file_id}`)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed. Please try again.')
+    } finally {
+      setUploading(false)
     }
   }
 

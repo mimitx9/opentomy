@@ -1,8 +1,9 @@
-import { randomUUID } from 'crypto'
 import { parseOptmyBuffer } from '@opentomy/crypto'
+import type { PrismaClient } from '@opentomy/db'
 import type { IFileRepository } from '../../ports/outbound/repositories/IFileRepository'
-import type { IFileStoragePort } from '../../ports/outbound/IFileStoragePort'
-import { FileTooLargeException, InvalidFileException } from '../../domain/exceptions/DomainException'
+import { FileTooLargeException, InvalidFileException, ConflictException } from '../../domain/exceptions/DomainException'
+import { decryptOptmyToSqlite } from '@/lib/optmy/serverDecrypt'
+import { importSqliteToMysql } from '@/lib/sqlite/serverSqliteReader'
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
 
@@ -19,7 +20,7 @@ export interface UploadQuizFileOutput {
 export class UploadQuizFileUseCase {
   constructor(
     private readonly fileRepo: IFileRepository,
-    private readonly fileStorage: IFileStoragePort,
+    private readonly prisma: PrismaClient,
   ) {}
 
   async execute(input: UploadQuizFileInput): Promise<UploadQuizFileOutput> {
@@ -35,24 +36,28 @@ export class UploadQuizFileUseCase {
       throw new InvalidFileException()
     }
 
-    // Use the file_id embedded in the header so that IssueDecryptTokenUseCase
-    // can derive the same token (HMAC(secret, file_id)) for decryption.
-    const fileId = header.file_id || randomUUID()
-    const fileKey = `quizzes/${fileId}.optmy`
+    if (header.content_type !== 'sqlite') {
+      throw new InvalidFileException()
+    }
 
-    await this.fileStorage.upload(fileKey, input.buffer)
+    const fileId = header.file_id
+    const existing = await this.fileRepo.findById(fileId)
+    if (existing) {
+      throw new ConflictException('A file with this ID already exists')
+    }
+
+    const { sqliteBuffer } = await decryptOptmyToSqlite(input.buffer)
+    const { questionCount } = await importSqliteToMysql(sqliteBuffer, fileId, this.prisma)
 
     await this.fileRepo.create({
       id: fileId,
       creatorId: input.creatorId,
       title: header.title,
       description: header.description,
-      questionCount: header.question_count,
+      questionCount,
       tags: header.tags,
       thumbnailUrl: header.thumbnail_url,
-      fileKey,
       fileSize: input.fileSize,
-      contentVersion: header.content_version,
       isPublic: false,
     })
 
