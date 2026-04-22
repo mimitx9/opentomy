@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { container } from '@/infrastructure/container'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 export default async function QuizzesPage({
@@ -9,25 +10,25 @@ export default async function QuizzesPage({
   searchParams: { search?: string; page?: string }
 }) {
   const session = await getServerSession(authOptions)
-  const page = parseInt(searchParams.page ?? '1')
-  const limit = 12
-  const search = searchParams.search ?? ''
+  if (!session?.user?.id) redirect('/login')
 
-  const { files, total } = await container.getPublicFiles.execute({ page, limit, search })
-  const totalPages = Math.ceil(total / limit)
+  const files = await container.getMyFiles.execute(session.user.id)
+
+  const search = searchParams.search ?? ''
+  const filtered = search
+    ? files.filter(f => f.title.toLowerCase().includes(search.toLowerCase()))
+    : files
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: 32 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700 }}>Browse Quizzes</h1>
-        {session && (
-          <Link
-            href="/files/upload"
-            style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 8, fontWeight: 600, fontSize: 14 }}
-          >
-            + Upload
-          </Link>
-        )}
+        <h1 style={{ fontSize: 28, fontWeight: 700 }}>My Library</h1>
+        <Link
+          href="/files/upload"
+          style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 8, fontWeight: 600, fontSize: 14 }}
+        >
+          + Upload
+        </Link>
       </div>
 
       {/* Search */}
@@ -40,18 +41,16 @@ export default async function QuizzesPage({
         />
       </form>
 
-      {files.length === 0 ? (
+      {filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8' }}>
-          <p style={{ fontSize: 18 }}>No quizzes found</p>
-          {session && (
-            <Link href="/files/upload" style={{ marginTop: 12, display: 'inline-block', color: '#2563eb' }}>
-              Upload the first one →
-            </Link>
-          )}
+          <p style={{ fontSize: 18 }}>{search ? 'No quizzes matched your search' : 'No quizzes yet'}</p>
+          <Link href="/files/upload" style={{ marginTop: 12, display: 'inline-block', color: '#2563eb' }}>
+            Upload your first .tomy file →
+          </Link>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px,1fr))', gap: 16 }}>
-          {files.map((f) => (
+          {filtered.map((f) => (
             <Link
               key={f.id}
               href={`/quizzes/${f.id}`}
@@ -91,27 +90,6 @@ export default async function QuizzesPage({
         </div>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 32 }}>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-            <Link
-              key={p}
-              href={`/quizzes?page=${p}${search ? `&search=${search}` : ''}`}
-              style={{
-                padding: '6px 14px',
-                border: '1px solid #e2e8f0',
-                borderRadius: 8,
-                fontWeight: p === page ? 700 : 400,
-                background: p === page ? '#2563eb' : '#fff',
-                color: p === page ? '#fff' : '#1e293b',
-              }}
-            >
-              {p}
-            </Link>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

@@ -53,7 +53,7 @@ export class UploadQuizFileUseCase {
       fileKey,
       fileSize: input.fileSize,
       contentVersion: header.content_version,
-      isPublic: true,
+      isPublic: false,
     })
 
     return { fileId }

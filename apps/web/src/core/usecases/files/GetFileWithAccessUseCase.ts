@@ -30,6 +30,10 @@ export class GetFileWithAccessUseCase {
       return { file, access: { hasAccess: false } }
     }
 
+    if (userId === file.creatorId) {
+      return { file, access: { hasAccess: true, accessType: 'GIFTED' } }
+    }
+
     const [subscription, fileAccess] = await Promise.all([
       this.subscriptionRepo.findByUserId(userId),
       this.accessRepo.findByUserAndFile(userId, fileId),
