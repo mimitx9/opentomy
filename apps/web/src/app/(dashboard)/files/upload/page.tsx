@@ -33,8 +33,8 @@ export default function UploadPage() {
     try {
       const form = new FormData()
       form.append('file', file)
-      const data = await apiUpload<{ file_id: string }>('/files', session!.accessToken, form)
-      router.push(`/quizzes/${data.file_id}`)
+      const data = await apiUpload<{ file: { id: string } }>('/v1/opentomy/files/upload', session!.accessToken, form)
+      router.push(`/quizzes/${data.file.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed. Please try again.')
     } finally {

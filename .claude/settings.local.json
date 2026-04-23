@@ -65,7 +65,16 @@
       "mcp__plugin_vercel_vercel__list_projects",
       "Bash(cat)",
       "Read(//tmp/**)",
-      "Bash(pnpm install *)"
+      "Bash(pnpm install *)",
+      "Bash(go get *)",
+      "Bash(GOFLAGS=-mod=mod go get github.com/mattn/go-sqlite3@v1.14.6)",
+      "Bash(go1.23 get *)",
+      "Bash(go version *)",
+      "Bash(go build *)",
+      "Read(//usr/local/go/bin/**)",
+      "Read(//Users/duc/go/bin/**)",
+      "Bash(/opt/homebrew/bin/go version *)",
+      "Bash(brew list *)"
     ]
   }
 }
