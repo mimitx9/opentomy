@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { apiGet, apiDelete } from '@/lib/apiClient'
 import type { QuizFileRecord } from '@opentomy/types'
 
 export default function FilesPage() {
@@ -18,8 +19,7 @@ export default function FilesPage() {
 
   useEffect(() => {
     if (!session) return
-    fetch('/api/files/mine')
-      .then((r) => r.json())
+    apiGet<{ data: QuizFileRecord[]; total: number }>('/files/mine', session.accessToken)
       .then((d) => { setFiles(d.data ?? []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [session])
@@ -27,7 +27,7 @@ export default function FilesPage() {
   async function handleDelete(id: string) {
     if (!confirm('Delete this file? This cannot be undone.')) return
     setDeletingId(id)
-    await fetch(`/api/files/${id}`, { method: 'DELETE' })
+    await apiDelete(`/files/${id}`, session!.accessToken).catch(() => null)
     setFiles((f) => f.filter((x) => x.id !== id))
     setDeletingId(null)
   }

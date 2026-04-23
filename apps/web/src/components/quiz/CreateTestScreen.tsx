@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
 import { useQuizStore } from '@/lib/store/quizStore'
+import { apiPost } from '@/lib/apiClient'
 import type { SubjectStat, SystemStat, QuizMode, QuizQuestion } from '@/types/quizSession'
 
 interface Props {
@@ -13,6 +15,7 @@ interface Props {
 }
 
 export default function CreateTestScreen({ fileId, subjectStats, systemStats, totalQuestions, onStart }: Props) {
+  const { data: session } = useSession()
   const loadQuestions = useQuizStore(s => s.loadQuestions)
 
   const [mode, setMode] = useState<QuizMode>('tutor')
@@ -39,26 +42,17 @@ export default function CreateTestScreen({ fileId, subjectStats, systemStats, to
   const clearSystems = () => setSelectedSystems([])
 
   const handleGenerate = useCallback(async () => {
+    if (!session) return
     setIsGenerating(true)
     try {
-      const res = await fetch(`/api/files/${fileId}/questions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subjectIds: selectedSubjectIds.length > 0 ? selectedSubjectIds : undefined,
-          systems: selectedSystems.length > 0 ? selectedSystems : undefined,
-          limit: numQuestions,
-          shuffle: true,
-        }),
+      const questions = await apiPost<QuizQuestion[]>(`/files/${fileId}/questions`, session.accessToken, {
+        subjectIds: selectedSubjectIds.length > 0 ? selectedSubjectIds : undefined,
+        systems: selectedSystems.length > 0 ? selectedSystems : undefined,
+        limit: numQuestions,
+        shuffle: true,
       })
 
-      if (!res.ok) {
-        alert('Failed to load questions. Please try again.')
-        return
-      }
-
-      const questions: QuizQuestion[] = await res.json()
-      if (questions.length === 0) {
+      if (!questions || questions.length === 0) {
         alert('No questions found matching the selected filters.')
         return
       }
@@ -71,7 +65,7 @@ export default function CreateTestScreen({ fileId, subjectStats, systemStats, to
     } finally {
       setIsGenerating(false)
     }
-  }, [fileId, selectedSubjectIds, selectedSystems, numQuestions, mode, loadQuestions, onStart])
+  }, [fileId, selectedSubjectIds, selectedSystems, numQuestions, mode, loadQuestions, onStart, session])
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', flexDirection: 'column' }}>

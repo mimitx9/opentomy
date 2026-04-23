@@ -1,16 +1,20 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { notFound } from 'next/navigation'
-import { container } from '@/infrastructure/container'
+import { apiGet } from '@/lib/apiClient'
 import Link from 'next/link'
+import type { QuizFileWithAccess } from '@opentomy/types'
 
 export default async function QuizDetailPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
 
-  const { file, access } = await container.getFileWithAccess.execute(
-    params.id,
-    session?.user?.id,
+  const data = await apiGet<QuizFileWithAccess>(
+    `/files/${params.id}`,
+    session?.accessToken ?? '',
   ).catch(() => notFound())
+
+  const file = data
+  const hasAccess = data.access?.hasAccess ?? false
 
   return (
     <div style={{ maxWidth: 700, margin: '40px auto', padding: 32 }}>
@@ -47,7 +51,7 @@ export default async function QuizDetailPage({ params }: { params: { id: string 
                 Sign in
               </Link>
             </div>
-          ) : access.hasAccess ? (
+          ) : hasAccess ? (
             <Link
               href={`/quizzes/${params.id}/play`}
               style={{ padding: '14px 32px', background: '#2563eb', color: '#fff', borderRadius: 8, fontWeight: 700, fontSize: 16, display: 'inline-block' }}

@@ -1,18 +1,39 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { container } from '@/infrastructure/container'
+import { apiGet } from '@/lib/apiClient'
 import Link from 'next/link'
+import type { QuizFileRecord } from '@opentomy/types'
+
+type SubscriptionStatus = {
+  tier: string
+  status: string | null
+  trial_ends_at: string | null
+  subscription: { trial_ends_at?: string | null; current_period_end?: string | null } | null
+}
+
+type FilesResponse = {
+  data: QuizFileRecord[]
+  total: number
+}
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/login')
 
-  const [{ tier, status, subscription }, myFiles] = await Promise.all([
-    container.getSubscriptionStatus.execute(session.user.id),
-    container.getMyFiles.execute(session.user.id),
+  const token = session.accessToken
+
+  const [{ tier, status, trial_ends_at }, filesData] = await Promise.all([
+    apiGet<SubscriptionStatus>('/subscription/status', token).catch(() => ({
+      tier: 'FREE',
+      status: null,
+      trial_ends_at: null,
+      subscription: null,
+    })),
+    apiGet<FilesResponse>('/files/mine', token).catch(() => ({ data: [], total: 0 })),
   ])
 
+  const myFiles = filesData.data ?? []
   const totalQuestions = myFiles.reduce((acc, f) => acc + (f.questionCount ?? 0), 0)
   const recentFiles = myFiles.slice(0, 4)
 
@@ -58,7 +79,11 @@ export default async function DashboardPage() {
         <StatCard
           label="Plan"
           value={tier}
-          sub={status === 'TRIALING' ? `trial ends ${subscription?.trialEndsAt ? new Date(subscription.trialEndsAt).toLocaleDateString() : '—'}` : status?.toLowerCase() ?? 'free'}
+          sub={
+            status === 'TRIALING'
+              ? `trial ends ${trial_ends_at ? new Date(trial_ends_at).toLocaleDateString() : '—'}`
+              : status?.toLowerCase() ?? 'free'
+          }
           accent={tierColor}
           bg={tierBg}
           icon={

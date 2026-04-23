@@ -62,7 +62,10 @@
       "Bash(pnpm --filter @opentomy/web tsc --noEmit)",
       "Bash(npx tsc *)",
       "mcp__plugin_vercel_vercel__list_teams",
-      "mcp__plugin_vercel_vercel__list_projects"
+      "mcp__plugin_vercel_vercel__list_projects",
+      "Bash(cat)",
+      "Read(//tmp/**)",
+      "Bash(pnpm install *)"
     ]
   }
 }

@@ -9,6 +9,7 @@ import CreateTestScreen from '@/components/quiz/CreateTestScreen'
 import QuizLayout from '@/components/quiz/QuizLayout'
 import QuestionDisplay from '@/components/quiz/QuestionDisplay'
 import AnswerChoices from '@/components/quiz/AnswerChoices'
+import { apiGet } from '@/lib/apiClient'
 
 type PlayState = 'loading' | 'configure' | 'playing' | 'no_access' | 'error'
 
@@ -29,24 +30,19 @@ export default function PlayPage() {
   const reset = useQuizStore(s => s.reset)
 
   const loadMetadata = useCallback(async () => {
+    if (!session) return
     setState('loading')
     try {
-      const [subjectsRes, systemsRes] = await Promise.all([
-        fetch(`/api/files/${fileId}/subjects`),
-        fetch(`/api/files/${fileId}/systems`),
+      const [subjectsData, systemsData] = await Promise.all([
+        apiGet<{ id: number; code: string; name: string; sortOrder: number; questionCount: number }[]>(
+          `/files/${fileId}/subjects`,
+          session.accessToken,
+        ),
+        apiGet<{ name: string; questionCount: number }[]>(
+          `/files/${fileId}/systems`,
+          session.accessToken,
+        ),
       ])
-
-      if (subjectsRes.status === 403 || subjectsRes.status === 402) {
-        const data = await subjectsRes.json()
-        setAccessInfo({ tier: data.tier ?? 'FREE', trialEndsAt: data.trial_ends_at ?? null })
-        setState('no_access')
-        return
-      }
-
-      if (!subjectsRes.ok || !systemsRes.ok) throw new Error('Failed to load quiz data')
-
-      const subjectsData: { id: number; code: string; name: string; sortOrder: number; questionCount: number }[] = await subjectsRes.json()
-      const systemsData: { name: string; questionCount: number }[] = await systemsRes.json()
 
       const subjects: SubjectStat[] = subjectsData.map(s => ({
         subject: { id: s.id, code: s.code, name: s.name, sort_order: s.sortOrder },
@@ -58,10 +54,16 @@ export default function PlayPage() {
       setTotalQuestions(subjectsData.reduce((sum, s) => sum + s.questionCount, 0))
       setState('configure')
     } catch (e) {
+      const status = e instanceof Error && 'status' in e ? (e as { status: number }).status : 0
+      if (status === 403 || status === 402) {
+        setAccessInfo({ tier: 'FREE', trialEndsAt: null })
+        setState('no_access')
+        return
+      }
       setError(e instanceof Error ? e.message : 'Unknown error')
       setState('error')
     }
-  }, [fileId])
+  }, [fileId, session])
 
   useEffect(() => {
     if (!session) return

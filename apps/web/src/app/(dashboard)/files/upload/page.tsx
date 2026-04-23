@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { apiUpload } from '@/lib/apiClient'
 
 export default function UploadPage() {
   const { data: session } = useSession()
@@ -32,18 +33,8 @@ export default function UploadPage() {
     try {
       const form = new FormData()
       form.append('file', file)
-      const res = await fetch('/api/files', { method: 'POST', body: form })
-      let data: Record<string, unknown> = {}
-      try {
-        data = await res.json()
-      } catch {
-        throw new Error('Server error or timeout. Please try again.')
-      }
-      if (!res.ok) {
-        setError((data.error as string) ?? 'Upload failed')
-      } else {
-        router.push(`/quizzes/${data.file_id}`)
-      }
+      const data = await apiUpload<{ file_id: string }>('/files', session!.accessToken, form)
+      router.push(`/quizzes/${data.file_id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed. Please try again.')
     } finally {

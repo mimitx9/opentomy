@@ -1,8 +1,9 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { container } from '@/infrastructure/container'
 import { redirect } from 'next/navigation'
+import { apiGet } from '@/lib/apiClient'
 import Link from 'next/link'
+import type { QuizFileRecord } from '@opentomy/types'
 
 export default async function QuizzesPage({
   searchParams,
@@ -12,8 +13,12 @@ export default async function QuizzesPage({
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) redirect('/login')
 
-  const files = await container.getMyFiles.execute(session.user.id)
+  const filesData = await apiGet<{ data: QuizFileRecord[]; total: number }>(
+    '/files/mine',
+    session.accessToken,
+  ).catch(() => ({ data: [], total: 0 }))
 
+  const files = filesData.data ?? []
   const search = searchParams.search ?? ''
   const filtered = search
     ? files.filter(f => f.title.toLowerCase().includes(search.toLowerCase()))
