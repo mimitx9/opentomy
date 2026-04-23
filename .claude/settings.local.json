@@ -60,7 +60,9 @@
       "Bash(cp ../../.env.local .env)",
       "Bash(rm -f .env)",
       "Bash(pnpm --filter @opentomy/web tsc --noEmit)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "mcp__plugin_vercel_vercel__list_teams",
+      "mcp__plugin_vercel_vercel__list_projects"
     ]
   }
 }

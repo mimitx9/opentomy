@@ -5,6 +5,7 @@ import { resolveIdentity } from '@/lib/apiAuth'
 import { container } from '@/infrastructure/container'
 import { toHttpResponse } from '@/lib/httpError'
 import { prisma } from '@opentomy/db'
+import * as famaster from '@/lib/famaster'
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000'
 
@@ -16,7 +17,7 @@ async function ensureSystemUser() {
   })
 }
 
-// GET /api/files — list public files
+// GET /api/files — list public files (proxied to famaster)
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const page = parseInt(searchParams.get('page') ?? '1')
@@ -24,15 +25,12 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get('search') ?? ''
 
   try {
-    const result = await container.getPublicFiles.execute({ page, limit, search })
-    return NextResponse.json({
-      data: result.files,
-      total: result.total,
-      page,
-      limit,
-      has_more: result.hasMore,
-    })
+    const result = await famaster.getPublicFiles({ page, limit, search })
+    return NextResponse.json(result)
   } catch (error) {
+    if (error instanceof famaster.FamasterError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
     return toHttpResponse(error)
   }
 }

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { container } from '@/infrastructure/container'
 import { toHttpResponse } from '@/lib/httpError'
+import * as famaster from '@/lib/famaster'
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -11,15 +11,18 @@ export async function POST(req: NextRequest) {
   const returnUrl = `${process.env.NEXTAUTH_URL}/subscription`
 
   try {
-    const result = await container.createPortal.execute(session.user.id, returnUrl)
+    const result = await famaster.createPortal(session.user.id, returnUrl)
 
     const accept = req.headers.get('accept') ?? ''
     if (!accept.includes('application/json')) {
-      return Response.redirect(result.portalUrl, 303)
+      return Response.redirect((result as { portal_url: string }).portal_url, 303)
     }
 
-    return NextResponse.json({ portal_url: result.portalUrl })
+    return NextResponse.json(result)
   } catch (error) {
+    if (error instanceof famaster.FamasterError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
     return toHttpResponse(error)
   }
 }
