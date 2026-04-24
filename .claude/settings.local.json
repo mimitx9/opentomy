@@ -74,7 +74,12 @@
       "Read(//usr/local/go/bin/**)",
       "Read(//Users/duc/go/bin/**)",
       "Bash(/opt/homebrew/bin/go version *)",
-      "Bash(brew list *)"
+      "Bash(brew list *)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(xargs -I{} sh -c 'ls \"{}\" 2>/dev/null | grep -q \"hasAccess\\\\|files.ts\\\\|files.js\" && echo \"{}\"')",
+      "Bash(~/go/go1.21.0/bin/go version *)",
+      "Bash(~/go/go1.21.0/bin/go build *)",
+      "Bash(pnpm --filter web tsc --noEmit)"
     ]
   }
 }

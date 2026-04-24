@@ -9,7 +9,7 @@ import CreateTestScreen from '@/components/quiz/CreateTestScreen'
 import QuizLayout from '@/components/quiz/QuizLayout'
 import QuestionDisplay from '@/components/quiz/QuestionDisplay'
 import AnswerChoices from '@/components/quiz/AnswerChoices'
-import { apiGet } from '@/lib/apiClient'
+
 
 type PlayState = 'loading' | 'configure' | 'playing' | 'no_access' | 'error'
 
@@ -33,15 +33,18 @@ export default function PlayPage() {
     if (!session) return
     setState('loading')
     try {
+      const fetchProxy = async (path: string) => {
+        const res = await fetch(path, { credentials: 'include' })
+        if (!res.ok) {
+          const err = Object.assign(new Error(res.statusText), { status: res.status })
+          throw err
+        }
+        return res.json()
+      }
+
       const [subjectsData, systemsData] = await Promise.all([
-        apiGet<{ id: number; code: string; name: string; sortOrder: number; questionCount: number }[]>(
-          `/files/${fileId}/subjects`,
-          session.accessToken,
-        ),
-        apiGet<{ name: string; questionCount: number }[]>(
-          `/files/${fileId}/systems`,
-          session.accessToken,
-        ),
+        fetchProxy(`/api/files/${fileId}/subjects`) as Promise<{ id: number; code: string; name: string; sortOrder: number; questionCount: number }[]>,
+        fetchProxy(`/api/files/${fileId}/systems`) as Promise<{ name: string; questionCount: number }[]>,
       ])
 
       const subjects: SubjectStat[] = subjectsData.map(s => ({

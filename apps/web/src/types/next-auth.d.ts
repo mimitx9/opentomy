@@ -7,5 +7,7 @@ declare module 'next-auth' {
       role: string
     }
     accessToken: string
+    internalUserId: string | null
+    canDecrypt: boolean
   }
 }

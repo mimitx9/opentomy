@@ -14,7 +14,7 @@ export default async function QuizDetailPage({ params }: { params: { id: string 
   ).catch(() => notFound())
 
   const file = data
-  const hasAccess = data.access?.hasAccess ?? false
+  const hasAccess = (session?.canDecrypt === true) || (data.access?.hasAccess === true)
 
   return (
     <div style={{ maxWidth: 700, margin: '40px auto', padding: 32 }}>
